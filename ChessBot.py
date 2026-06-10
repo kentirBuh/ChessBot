@@ -15,12 +15,12 @@ def main():
     try:
         while True:
             msg = peer.recv()
-            print("RECEIVED:", msg)
+            print("Biały:", msg)
 
             board.move_piece(msg)
 
             move = engine.choose_move(board)
-            print("SENDING:", move)
+            print("Czarny:", move)
 
             if move:
                 board.move_piece(move)
