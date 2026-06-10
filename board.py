@@ -21,8 +21,8 @@ class Board:
     def setup(self):
         # pawns
         for f in FILES:
-            self.board[f + "2"] = "wp"
-            self.board[f + "7"] = "bp"
+            self.board[f + "2"] = "wP"
+            self.board[f + "7"] = "bP"
 
         # pieces
         back = ["R", "N", "B", "Q", "K", "B", "N", "R"]
