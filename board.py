@@ -15,6 +15,18 @@ class Board:
     def __init__(self):
         self.board = {}
         self.turn = "w"
+
+        self.en_passant = None
+
+        self.castling = {
+            "wK": True,
+            "wR_kingside": True,
+            "wR_queenside": True,
+            "bK": True,
+            "bR_kingside": True,
+            "bR_queenside": True
+        }
+
         self.setup()
 
     def setup(self):
@@ -35,7 +47,8 @@ class Board:
 
         new.board = self.board.copy()
         new.turn = self.turn
-
+        new.en_passant = self.en_passant
+        new.castling = self.castling.copy()
         return new
 
     def piece_at(self, sq):
@@ -46,21 +59,62 @@ class Board:
         to = move["to"]
 
         piece = self.board.get(frm)
-
         if not piece:
             return
 
+        # =========================
+        # EN PASSANT
+        # =========================
+        if piece[1] == "P" and self.en_passant and to == self.en_passant:
+
+            self.board[to] = piece
+            del self.board[frm]
+
+            f_from, r_from = self.from_coord(frm)
+            f_to, r_to = self.from_coord(to)
+
+            direction = -1 if piece[0] == "w" else 1
+
+            cap_r = r_to + direction
+            cap_sq = self.to_coord(f_to, cap_r)
+
+            self.board.pop(cap_sq, None)
+
+            self.en_passant = None
+            self.turn = opposite(self.turn)
+            return
+
+        # reset en passant
+        self.en_passant = None
+
+        # =========================
+        # NORMAL MOVE
+        # =========================
         self.board[to] = piece
         del self.board[frm]
 
+        # =========================
+        # PROMOTION
+        # =========================
         if "promotion" in move:
-            self.board[to] = self.turn + move["promotion"]
+            self.board[to] = piece[0] + move["promotion"]
+
+        # =========================
+        # SET EN PASSANT TARGET
+        # =========================
+        if piece[1] == "P":
+            frm_r = int(frm[1])
+            to_r = int(to[1])
+
+            if abs(to_r - frm_r) == 2:
+                mid_r = (frm_r + to_r) // 2
+                self.en_passant = to[0] + str(mid_r)
 
         self.turn = opposite(self.turn)
 
-    # =====================================================
-    # CHECK DETECTION
-    # =====================================================
+        # =====================================================
+        # CHECK DETECTION
+        # =====================================================
 
     def king_square(self, color):
         target = color + "K"
@@ -338,14 +392,33 @@ class Board:
             if self.in_bounds(nf, nr):
                 to_sq = self.to_coord(nf, nr)
 
-                if self.is_enemy(
-                    self.board.get(to_sq),
-                    color
-                ):
+                if self.is_enemy(self.board.get(to_sq), color):
                     moves.append({
                         "piece": "P",
                         "from": sq,
                         "to": to_sq
+                    })
+
+        # =====================================================
+        # EN PASSANT
+        # =====================================================
+
+        if self.en_passant:
+            ep_f, ep_r = self.from_coord(self.en_passant)
+
+            # pion musi być obok pionowej kolumny celu
+            if abs(ep_f - f) == 1:
+
+                # poprawny rząd dla en passant:
+                # white: 5th rank (r == 4)
+                # black: 4th rank (r == 3)
+                if (color == "w" and r == 4) or (color == "b" and r == 3):
+
+                    moves.append({
+                        "piece": "P",
+                        "from": sq,
+                        "to": self.en_passant,
+                        "en_passant": True
                     })
 
         return moves
@@ -421,6 +494,9 @@ class Board:
 
         f, r = self.from_coord(sq)
 
+        # =========================
+        # NORMAL KING MOVES
+        # =========================
         for df in (-1, 0, 1):
             for dr in (-1, 0, 1):
                 if df == 0 and dr == 0:
@@ -440,6 +516,91 @@ class Board:
                             "from": sq,
                             "to": to_sq
                         })
+
+        # =========================
+        # CASTLING (FULL LEGAL CHECK)
+        # =========================
+
+        # helper: check squares not attacked
+        def safe(squares, enemy_color):
+            for s in squares:
+                if self.is_square_attacked(s, enemy_color):
+                    return False
+            return True
+
+        enemy = opposite(color)
+
+        # -------------------------
+        # WHITE CASTLING
+        # -------------------------
+        if color == "w" and sq == "e1":
+
+            # kingside (e1 -> g1)
+            if (
+                self.castling.get("wK") and
+                "f1" not in self.board and
+                "g1" not in self.board and
+                not self.in_check("w") and
+                safe(["f1", "g1"], enemy)
+            ):
+                moves.append({
+                    "piece": "K",
+                    "from": "e1",
+                    "to": "g1",
+                    "castling": True
+                })
+
+            # queenside (e1 -> c1)
+            if (
+                self.castling.get("wR_queenside") and
+                "b1" not in self.board and
+                "c1" not in self.board and
+                "d1" not in self.board and
+                not self.in_check("w") and
+                safe(["d1", "c1"], enemy)
+            ):
+                moves.append({
+                    "piece": "K",
+                    "from": "e1",
+                    "to": "c1",
+                    "castling": True
+                })
+
+        # -------------------------
+        # BLACK CASTLING
+        # -------------------------
+        if color == "b" and sq == "e8":
+
+            # kingside (e8 -> g8)
+            if (
+                self.castling.get("bK") and
+                "f8" not in self.board and
+                "g8" not in self.board and
+                not self.in_check("b") and
+                safe(["f8", "g8"], enemy)
+            ):
+                moves.append({
+                    "piece": "K",
+                    "from": "e8",
+                    "to": "g8",
+                    "castling": True
+                })
+
+            # queenside (e8 -> c8)
+            if (
+                self.castling.get("bR_queenside") and
+                "b8" not in self.board and
+                "c8" not in self.board and
+                "d8" not in self.board and
+                not self.in_check("b") and
+                safe(["d8", "c8"], enemy)
+            ):
+                moves.append({
+                    "piece": "K",
+                    "from": "e8",
+                    "to": "c8",
+                    "castling": True
+                })
 
         return moves
     
