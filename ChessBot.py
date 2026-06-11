@@ -25,6 +25,9 @@ def main():
             if move:
                 board.move_piece(move)
                 peer.send(move)
+            else:
+                print("Koniec gry - brak legalnych ruchow.")
+                break
 
     finally:
         peer.close()

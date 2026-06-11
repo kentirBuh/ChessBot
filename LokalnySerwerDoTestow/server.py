@@ -3,6 +3,8 @@ import os
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 from connection import wait_for_client
+from board import Board
+from engine import Engine
 
 def main():
     print("Czekam na bota...")
@@ -10,20 +12,29 @@ def main():
     peer, addr = wait_for_client("127.0.0.1", 5050)
     print("Bot podłączony:", addr)
 
-    # startowa pozycja - tylko test (pion e2-e4)
-    moves = [
-        {"piece":"P","from":"e2","to":"e4"},
-        {"piece":"P","from":"e7","to":"e5"},
-        {"piece":"N","from":"g1","to":"f3"},
-    ]
+    board = Board()
+    engine = Engine()
 
     try:
-        for m in moves:
-            print("SERWER -> BOT:", m)
-            peer.send(m)
+        while True:
+            move = engine.choose_move(board)
+            print("Bialy:", move)
 
-            reply = peer.recv()
-            print("BOT -> SERWER:", reply)
+            if not move:
+                print("Koniec gry - brak legalnych ruchow.")
+                break
+
+            board.move_piece(move)
+            peer.send(move)
+
+            try:
+                reply = peer.recv()
+            except ConnectionError:
+                print("Bot rozlaczony.")
+                break
+
+            print("Czarny:", reply)
+            board.move_piece(reply)
 
     finally:
         peer.close()

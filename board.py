@@ -94,10 +94,40 @@ class Board:
         del self.board[frm]
 
         # =========================
+        # CASTLING - MOVE THE ROOK
+        # =========================
+        if move.get("castling"):
+            if to == "g1":
+                self.board["f1"] = self.board.pop("h1")
+            elif to == "c1":
+                self.board["d1"] = self.board.pop("a1")
+            elif to == "g8":
+                self.board["f8"] = self.board.pop("h8")
+            elif to == "c8":
+                self.board["d8"] = self.board.pop("a8")
+
+        # =========================
         # PROMOTION
         # =========================
         if "promotion" in move:
             self.board[to] = piece[0] + move["promotion"]
+
+        # =========================
+        # UPDATE CASTLING RIGHTS
+        # =========================
+        if piece == "wK":
+            self.castling["wK"] = False
+            self.castling["wR_queenside"] = False
+        elif piece == "bK":
+            self.castling["bK"] = False
+            self.castling["bR_queenside"] = False
+
+        for sq, flag in (
+            ("h1", "wK"), ("a1", "wR_queenside"),
+            ("h8", "bK"), ("a8", "bR_queenside"),
+        ):
+            if frm == sq or to == sq:
+                self.castling[flag] = False
 
         # =========================
         # SET EN PASSANT TARGET
@@ -538,6 +568,7 @@ class Board:
             # kingside (e1 -> g1)
             if (
                 self.castling.get("wK") and
+                self.board.get("h1") == "wR" and
                 "f1" not in self.board and
                 "g1" not in self.board and
                 not self.in_check("w") and
@@ -553,6 +584,7 @@ class Board:
             # queenside (e1 -> c1)
             if (
                 self.castling.get("wR_queenside") and
+                self.board.get("a1") == "wR" and
                 "b1" not in self.board and
                 "c1" not in self.board and
                 "d1" not in self.board and
@@ -574,6 +606,7 @@ class Board:
             # kingside (e8 -> g8)
             if (
                 self.castling.get("bK") and
+                self.board.get("h8") == "bR" and
                 "f8" not in self.board and
                 "g8" not in self.board and
                 not self.in_check("b") and
@@ -589,6 +622,7 @@ class Board:
             # queenside (e8 -> c8)
             if (
                 self.castling.get("bR_queenside") and
+                self.board.get("a8") == "bR" and
                 "b8" not in self.board and
                 "c8" not in self.board and
                 "d8" not in self.board and

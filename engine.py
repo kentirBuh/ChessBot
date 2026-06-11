@@ -13,6 +13,10 @@ PIECE_VALUES = {
 
 CENTER = {"d4", "e4", "d5", "e5"}
 
+CASTLED_SQUARES = {"w": {"g1", "c1"}, "b": {"g8", "c8"}}
+
+MATE_SCORE = 100000
+
 FILES = "abcdefgh"
 
 
@@ -49,6 +53,10 @@ class Engine:
             if sq in CENTER:
                 score += 25 if color == "w" else -25
 
+            # king safety: reward having castled
+            if p == "K" and sq in CASTLED_SQUARES[color]:
+                score += 30 if color == "w" else -30
+
         return score
 
     # -----------------------------
@@ -71,6 +79,10 @@ class Engine:
             if "promotion" in m:
                 score += 900
 
+            # castling: encourage getting the king to safety
+            if m.get("castling"):
+                score += 60
+
             return score
 
         return sorted(moves, key=score_move, reverse=True)
@@ -89,7 +101,15 @@ class Engine:
         moves = board.generate_moves(board.turn)
         moves = self.order_moves(moves, board)
 
-        if depth == 0 or not moves:
+        if not moves:
+            if board.in_check(board.turn):
+                # Side to move is checkmated - terrible for them.
+                # Subtracting `depth` makes faster mates score higher in
+                # magnitude, so the engine prefers the quickest mate.
+                return -(MATE_SCORE + depth), None
+            return 0, None  # stalemate -> draw
+
+        if depth == 0:
             val = self.evaluate(board)
             return val, None
 
@@ -154,7 +174,4 @@ class Engine:
     # COPY BOARD
     # -----------------------------
     def copy(self, board):
-        new = type(board)()
-        new.board = board.board.copy()
-        new.turn = board.turn
-        return new
+        return board.copy()
